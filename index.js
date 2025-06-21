@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits } from 'discord.js';
 import dotenv from 'dotenv';
 import { saveCheckin, getCertifiedUsers } from './services/checkinService.js';
 import cron from 'node-cron';
+import express from 'express';
 
 dotenv.config();
 
@@ -54,3 +55,14 @@ cron.schedule('59 23 * * *', async () => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('Bot is running!');
+});
+
+app.listen(PORT, () => {
+  console.log(`Web server running on port ${PORT}`);
+});
