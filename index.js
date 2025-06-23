@@ -86,13 +86,10 @@ function shouldProcessMessage(message) {
 
 
 // 자정마다 누락자 알림
-cron.schedule('59 23 * * *', async () => {
-  const now = new Date();
-  const today = now.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace('. ', '/').replace('.', '');
-
+async function reportMissedCheckins(dateString) {
   const guild = client.guilds.cache.first(); // 단일 서버 기준
   const allMembers = await guild.members.fetch();
-  const certified = await getCertifiedUsers(today);
+  const certified = await getCertifiedUsers(dateString); // 해당 날짜 인증자 리스트
 
   const missed = allMembers
     .filter(m => !m.user.bot && !certified.includes(m.id))
@@ -100,9 +97,39 @@ cron.schedule('59 23 * * *', async () => {
 
   if (missed.length > 0) {
     const channel = await client.channels.fetch(process.env.NOTICE_CHANNEL_ID);
-    channel.send(`❗ ${today} 인증 누락자:\n${missed.join(', ')}`);
+    await channel.send(`❗ ${dateString} 인증 누락자:\n${missed.join(', ')}`);
+  } else {
+    const channel = await client.channels.fetch(process.env.NOTICE_CHANNEL_ID);
+    await channel.send(`✅ ${dateString}에 모든 사용자가 인증했습니다.`);
+  }
+}
+
+cron.schedule('59 23 * * *', async () => {
+  const now = new Date();
+  const today = now.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace('. ', '/').replace('.', '');
+  await reportMissedCheckins(today);
+});
+
+
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+
+  // 누락자 수동 확인 커맨드: !누락자 06/23
+  if (message.content.startsWith('!누락자')) {
+    const args = message.content.split(' ');
+    if (args.length !== 2) {
+      return message.reply('❌ 사용법: `!누락자 MM/DD`');
+    }
+
+    const dateRegex = /^\d{2}\/\d{2}$/;
+    if (!dateRegex.test(args[1])) {
+      return message.reply('❌ 날짜 형식이 잘못되었습니다. 예: 06/23');
+    }
+
+    await reportMissedCheckins(args[1]);
   }
 });
+
 
 client.login(process.env.DISCORD_TOKEN);
 

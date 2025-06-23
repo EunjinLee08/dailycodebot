@@ -1,10 +1,10 @@
 import { db } from '../firebase.js';
 
 export async function saveCheckin(userId, date) {
-  const safeDate = date.replace(/\//g, '-');  // 예: "06-23"
+  const safeDate = date.replace(/\//g, '-');
   await db.collection('checkins').doc(`${userId}_${safeDate}`).set({
     userId,
-    date,
+    date: safeDate, // ✅ 여기 수정
     timestamp: new Date()
   });
 }
