@@ -192,6 +192,51 @@ client.on('messageCreate', async (message) => {
   }
 });
 
+// 누적 벌금 확인
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+
+  if (message.content.trim() === '!누적벌금') {
+    const START_DATE = new Date("2025-06-23");
+    const now = new Date();
+    now.setDate(now.getDate() - 1); //  어제 기준으로 정산
+
+    const dates = [];
+    const current = new Date(START_DATE);
+
+    while (current <= now) {
+      const mmdd = current.toLocaleDateString('ko-KR', {month: '2-digit', day: '2-digit'}).replace('. ', '-').replace('.', '');
+      dates.push(mmdd);
+      current.setDate(current.getDate() + 1);
+    }
+
+    const guild = client.guilds.cache.first();
+    const allMembers = await guild.members.fetch();
+    const results = {};
+
+    for (const [id, member] of allMembers) {
+      if (member.user.bot) continue;
+      results[id] = 0;
+    }
+
+    for (const date of dates) {
+      const certified = await getCertifiedUsers(date);
+      for (const [id, member] of allMembers) {
+        if (member.user.bot) continue;
+        if (!certified.includes(id)) {
+          results[id]++;
+        }
+      }
+    }
+
+    const lines = Object.entries(results).filter(([_, count]) => count > 0).map(([id, count]) => `<@${id}>: ${count * 500}원`);
+
+    const report = lines.length > 0 ? `누적 벌금 현황 (기준일: 2025/06/23 ~ 오늘):\n${lines.join('\n')}` : `기준일 이후 전원 인증 완료`;
+
+    const targetChannel = await client.channels.fetch("1391068987412054037");
+    await targetChannel.send(report);
+  }
+});
 
 client.login(process.env.DISCORD_TOKEN);
 
