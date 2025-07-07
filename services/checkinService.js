@@ -4,7 +4,7 @@ export async function saveCheckin(userId, date) {
   const safeDate = date.replace(/\//g, '-');
   await db.collection('checkins').doc(`${userId}_${safeDate}`).set({
     userId,
-    date: safeDate, // ✅ 여기 수정
+    date: safeDate,
     timestamp: new Date()
   });
 }

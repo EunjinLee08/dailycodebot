@@ -130,6 +130,68 @@ client.on('messageCreate', async (message) => {
   }
 });
 
+// 주차별 정산
+function getWeekDates(includedDateStr) {
+  const [month, day] = includedDateStr.split('/').map(Number);
+  const baseDate = new Date(new Date().getFullYear(), month - 1, day);
+  const dayOfWeek = baseDate.getDay();
+  const monday = new Date(baseDate);
+  monday.setDate(baseDate.getDate() - ((dayOfWeek + 6) % 7));
+
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const mmdd = d.toLocaleDateString('ko-KR', {month: '2-digit', day: '2-digit'}).replace('. ', '-').replace('.', '');
+    dates.push(mmdd);
+  }
+  return dates;
+}
+
+// 주간 누락자 수동 확인 커맨드
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+
+  if (message.content.startsWith('!주간누락')) {
+    const args = message.content.split(' ');
+    if (args.length !== 2) {
+      return message.reply('사용법: `!주간누락 MM/DD`');
+    }
+
+    const dateRegex = /^\d{2}\/\d{2}$/;
+    if (!dateRegex.test(args[1])) {
+      return message.reply('날짜 형식이 잘못되었습니다. 예: 06/23');
+    }
+
+    const weekDates = getWeekDates(args[1]);
+    const guild = client.guilds.cache.first();
+    const allMembers = await guild.members.fetch();
+    const results = {};
+
+    for (const [id, member] of allMembers) {
+      if (member.user.bot) continue;
+      results[id] = 0;
+    }
+
+    for (const date of weekDates) {
+      const certified = await getCertifiedUsers(date);
+      for (const [id, member] of allMembers) {
+        if (member.user.bot) continue;
+        if (!certified.includes(id)) {
+          results[id]++;
+        }
+      }
+    }
+
+    const lines = Object.entries(results).filter(([_, count]) => count > 0).map(([id, count]) => `<@${id}>: ${count}회 누락`);
+
+    const report = lines.length > 0 ? `${args[1]}이 포함된 주간 누락 현황:\n${lines.join('\n')}`: `${args[1]}이 포함된 주간 누락 현황: 전원 제출`;
+
+    const targetChannel = await client.channels.fetch("1391068987412054037");
+    await targetChannel.send(report);
+  }
+});
+
 
 client.login(process.env.DISCORD_TOKEN);
 
